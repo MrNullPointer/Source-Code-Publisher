@@ -1,0 +1,111 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br>This file is not dependent on anything<pre>
+#pragma once
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Comm.h - message-passing communication facility                 //</div>
+<div class="comments">// ver 2.0                                                         //</div>
+<div class="comments">// Jim Fawcett, CSE687-OnLine Object Oriented Design, Fall 2017    //</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">/*
+*  Package Operations:
+*  -------------------
+*  This package defines Sender and Receiver classes.
+*  - Sender uses a SocketConnecter and supports connecting to multiple
+*    sequential endpoints and posting messages.
+*  - Receiver uses a SocketListener which returns a Socket on connection.
+*  It also defines a Comm class
+*  - Comm simply composes a Sender and a Receiver, exposing methods:
+*    postMessage(Message) and getMessage()
+*
+*  Required Files:
+*  ---------------
+*  Comm.h, Comm.cpp,
+*  Sockets.h, Sockets.cpp,
+*  Message.h, Message.cpp,
+*  Utilities.h, Utilities.cpp
+*
+*  Maintenance History:
+*  --------------------
+*  ver 2.0 : 07 Oct 2017
+*  - added sendFile(...) as private member of Sender
+*  - added receiveFile() as member of ClientHandler
+*  ver 1.0 : 03 Oct 2017
+*  - first release
+*/</div>
+
+#include "../Message/Message.h"
+#include "../Cpp11-BlockingQueue/Cpp11-BlockingQueue.h"
+#include "../Sockets/Sockets.h"
+#include &lt;string&gt;
+#include &lt;thread&gt;
+
+using namespace Sockets;
+
+namespace MsgPassingCommunication
+{
+  <div class="comments">///////////////////////////////////////////////////////////////////</div>
+  <div class="comments">// Receiver class</div>
+
+  class Receiver
+  <div class="classes">{
+  public:
+    Receiver(EndPoint ep, const std::string& name = "Receiver");
+    template&lt;typename CallableObject&gt;
+    void start(CallableObject& co);
+    void stop();
+    Message getMessage();
+    BlockingQueue&lt;Message&gt;* queue();
+  private:
+	  BlockingQueue&lt;Message&gt; rcvQ;
+    SocketListener listener;
+    std::string rcvrName;
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////////</div>
+  <div class="comments">// Sender class</div>
+
+  class Sender
+  <div class="classes">{
+  public:
+    Sender(const std::string& name = "Sender");
+    ~Sender();
+    void start();
+    void stop();
+    bool connect(EndPoint ep);
+    void postMessage(Message msg);
+  private:
+  	bool sendFile(Message msg);
+	  BlockingQueue&lt;Message&gt; sndQ;
+    SocketConnecter connecter;
+    std::thread sendThread;
+    EndPoint lastEP;
+    std::string sndrName;
+  };</div>
+
+  class Comm
+  <div class="classes">{
+  public:
+    Comm(EndPoint ep, const std::string& name = "Comm");
+    void start();
+    void stop();
+    void postMessage(Message msg);
+    Message getMessage();
+    std::string name();
+  private:
+    Sender sndr;
+    Receiver rcvr;
+    std::string commName;
+  };</div>
+}
+</pre>
+</body
+></html
+>

@@ -1,0 +1,23 @@
+
+                                      CodeAnalysis - Version 1.8
+    ==============================================================================================
+     Thu Apr 11 19:29:13 2019
+     Path: "C:\Users\dhruv\Desktop\DGB_Project3\OODProject1"
+     Args: OODProject1.sln, /v, /m, /r, /f, /p
+                                                                               
+           Code Metrics - Start Line, Size (lines/code), and Complexity (number of scopes)
+    ==============================================================================================
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+                             namespace                   Global Namespace       1       1       1
+
+                          Functions Exceeding Metric Limits and Public Data
+    ==============================================================================================
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+
+
+
+    searched   194 dirs
+   processed     1 files

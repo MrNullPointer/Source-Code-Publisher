@@ -1,0 +1,95 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br>This file is not dependent on anything<pre>
+#ifndef UNITTEST_H
+#define UNITTEST_H
+<div class="comments">///////////////////////////////////////////////////////////////</div>
+<div class="comments">// UnitTest.cpp - Demonstrate unit testing framework         //</div>
+<div class="comments">// ver 1.1                                                   //</div>
+<div class="comments">// --------------------------------------------------------- //</div>
+<div class="comments">// copyright © Jim Fawcett, 2012, 2013                       //</div>
+<div class="comments">// All rights granted provided that this notice is retained  //</div>
+<div class="comments">// --------------------------------------------------------- //</div>
+<div class="comments">// Jim Fawcett, CSE687-Object Oriented Design, Spring 2013   //</div>
+<div class="comments">///////////////////////////////////////////////////////////////</div>
+
+#include &lt;string&gt;
+#include &lt;iostream&gt;
+
+namespace Test
+{
+  void Title(const std::string& title, char ch='=')
+  <div class="functions">{
+    std::cout &lt;&lt; "\n  " &lt;&lt; title;
+    std::cout &lt;&lt; "\n " &lt;&lt; std::string(title.size() + 2, ch);
+  }</div>
+
+  template &lt;typename T&gt;
+  class TestBase
+  <div class="classes">{
+  public:
+
+    typedef bool (T::*Test) ();
+
+    virtual ~TestBase() <div class="functions">{}</div>
+
+    <div class="comments">// Your test driver implements this for each major test</div>
+    <div class="comments">// - call a sequence of doTest(TestN)s</div>
+    <div class="comments">//-----------------------------------------------------</div>
+    virtual bool test()=0;
+
+    <div class="comments">// Executes test functions inside a try block</div>
+    <div class="comments">//-------------------------------------------</div>
+    bool doTest(Test atest) 
+    <div class="functions">{ 
+      try
+      {
+        return (dynamic_cast&lt;T*&gt;(this)-&gt;*atest)();
+      }
+      catch (std::exception& ex)
+      {
+        std::cout &lt;&lt; "\n  failed: " &lt;&lt; ex.what();
+        return false;
+      }
+      catch(...)
+      {
+        std::cout &lt;&lt; "\n  failed: thrown structured exception";
+        return false;
+      }
+    }</div>
+    <div class="comments">// Call this in your test functions to save duplicating output statements</div>
+    <div class="comments">//-----------------------------------------------------------------------</div>
+    bool checkResult(bool predicate, std::string testname)
+    <div class="functions">{
+      std::string name = std::string(typeid(*this).name()) + "::" + testname;
+      name = name.substr(6, name.size() - 6);
+      if(predicate)
+        return passed(name);
+      else
+        return failed(name);
+    }</div>
+  protected:
+    bool passed(const std::string& name)
+    <div class="functions">{
+      std::cout &lt;&lt; "\n  passed: " &lt;&lt; name;
+      return true;
+    }</div>
+    bool failed(const std::string& name)
+    <div class="functions">{
+      std::cout &lt;&lt; "\n  failed: " &lt;&lt; name;
+      return false;
+    }</div>
+  };</div>
+}</div>
+#endif
+</pre>
+</body
+></html
+>

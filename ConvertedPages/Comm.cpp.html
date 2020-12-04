@@ -1,0 +1,629 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br><a href="Comm.h.html ">Comm.h</a>&nbsp&nbsp&nbsp&nbsp<pre>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Comm.h - message-passing communication facility                 //</div>
+<div class="comments">// ver 2.0                                                         //</div>
+<div class="comments">// Jim Fawcett, CSE687-OnLine Object Oriented Design, Fall 2017    //</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+
+#include "Comm.h"
+#include "../Logger/Logger.h"
+#include "../Utilities/Utilities.h"
+#include "../Cpp11-BlockingQueue/Cpp11-BlockingQueue.h"
+#include &lt;iostream&gt;
+#include &lt;fstream&gt;
+#include &lt;functional&gt;
+#include &lt;algorithm&gt;
+#include &lt;conio.h&gt;
+
+using namespace MsgPassingCommunication;
+using namespace Sockets;
+using SUtils = Utilities::StringHelper;
+
+const std::string saveFilePath = "../SaveFiles";
+const std::string sendFilePath = "../SendFiles";
+const size_t BlockSize = 1024;
+Socket::byte rwBuffer[BlockSize];
+
+<div class="comments">//----&lt; constructor sets port &gt;--------------------------------------</div>
+
+Receiver::Receiver(EndPoint ep, const std::string& name) : listener(ep.port), rcvrName(name)
+<div class="functions">{
+  StaticLogger&lt;1&gt;::write("\n  -- starting Receiver");
+}</div>
+<div class="comments">//----&lt; returns reference to receive queue &gt;-------------------------</div>
+
+BlockingQueue&lt;Message&gt;* Receiver::queue()
+<div class="functions">{
+  return &rcvQ;
+}</div>
+<div class="comments">//----&lt; starts listener thread running callable object &gt;-------------</div>
+
+template&lt;typename CallableObject&gt;
+void Receiver::start(CallableObject& co)
+<div class="functions">{
+  listener.start(co);
+}</div>
+<div class="comments">//----&lt; stops listener thread &gt;--------------------------------------</div>
+
+void Receiver::stop()
+<div class="functions">{
+  listener.stop();
+}</div>
+<div class="comments">//----&lt; retrieves received message &gt;---------------------------------</div>
+
+Message Receiver::getMessage()
+<div class="functions">{
+  StaticLogger&lt;1&gt;::write("\n  -- " + rcvrName + " deQing message");
+  return rcvQ.deQ();
+}</div>
+<div class="comments">//----&lt; constructor initializes endpoint object &gt;--------------------</div>
+
+Sender::Sender(const std::string& name) : sndrName(name)
+<div class="functions">{
+  lastEP = EndPoint();  <div class="comments">// used to detect change in destination</div>
+}</div>
+<div class="comments">//----&lt; destructor waits for send thread to terminate &gt;--------------</div>
+
+Sender::~Sender()
+<div class="functions">{
+  if (sendThread.joinable())
+    sendThread.join();
+}</div>
+<div class="comments">//----&lt; starts send thread deQ, inspect, and send loop &gt;-------------</div>
+
+void Sender::start()
+<div class="functions">{
+  std::function &lt;void()&gt; threadProc = [&]() {
+    while (true)
+    {
+      Message msg = sndQ.deQ();
+
+      if (msg.command() == "quit")
+      {
+        StaticLogger&lt;1&gt;::write("\n  -- send thread shutting down");
+        return;
+      }
+      StaticLogger&lt;1&gt;::write("\n  -- " + sndrName + " send thread sending " + msg.name());
+      std::string msgStr = msg.toString();
+
+      if (msg.to().address != lastEP.address || msg.to().port != lastEP.port)
+      {
+        connecter.shutDown();
+        <div class="comments">//connecter.close();</div>
+        StaticLogger&lt;1&gt;::write("\n  -- attempting to connect to new endpoint: " + msg.to().toString());
+        if (!connect(msg.to()))
+        {
+          StaticLogger&lt;1&gt;::write("\n can't connect");
+          continue;
+        }
+        else
+        {
+          StaticLogger&lt;1&gt;::write("\n  connected to " + msg.to().toString());
+        }
+      }
+      if (msg.containsKey("file"))
+      {
+        sendFile(msg);
+      }
+      else
+      {
+        bool sendRslt = connecter.send(msgStr.length(), (Socket::byte*)msgStr.c_str());
+      }
+    }
+  };
+  std::thread t(threadProc);
+  sendThread = std::move(t);
+}</div>
+<div class="comments">//----&lt; stops send thread by posting quit message &gt;------------------</div>
+
+void Sender::stop()
+<div class="functions">{
+  Message msg;
+  msg.name("quit");
+  msg.command("quit");
+  postMessage(msg);
+  connecter.shutDown();
+}</div>
+<div class="comments">//----&lt; attempts to connect to endpoint ep &gt;-------------------------</div>
+
+bool Sender::connect(EndPoint ep)
+<div class="functions">{
+  lastEP = ep;
+  return connecter.connect(ep.address, ep.port);
+}</div>
+<div class="comments">//----&lt; posts message to send queue &gt;--------------------------------</div>
+
+void Sender::postMessage(Message msg)
+<div class="functions">{
+  sndQ.enQ(msg);
+}</div>
+<div class="comments">//----&lt; sends binary file &gt;------------------------------------------</div>
+<div class="comments">/*
+*  - not implemented yet
+*/</div>
+bool Sender::sendFile(Message msg)
+<div class="functions">{
+  if (!msg.containsKey("file"))
+    return false;
+  std::string fileSpec = sendFilePath + "/" + msg.file();
+  std::ifstream sendFile(fileSpec, std::ios::binary);
+  if (!sendFile.good())
+    return false;
+  while (true)
+  {
+    sendFile.read(rwBuffer, BlockSize);
+    size_t blockSize = (size_t)sendFile.gcount();
+    msg.contentLength(blockSize);
+    std::string msgString = msg.toString();
+    connecter.sendString(msgString);
+    if (blockSize == 0)
+      break;
+    connecter.send(blockSize, rwBuffer);
+  }
+  sendFile.close();
+  return true;
+}</div>
+<div class="comments">//----&lt; callable object posts incoming message to rcvQ &gt;-------------</div>
+<div class="comments">/*
+*  This is ClientHandler for receiving messages and posting
+*  to the receive queue.
+*/</div>
+class ClientHandler
+<div class="classes">{
+public:
+  <div class="comments">//----&lt; acquire reference to shared rcvQ &gt;-------------------------</div>
+
+  ClientHandler(BlockingQueue&lt;Message&gt;* pQ, const std::string& name = "clientHandler") : pQ_(pQ), clientHandlerName(name)
+  <div class="functions">{
+    StaticLogger&lt;1&gt;::write("\n  -- starting ClientHandler");
+  }</div>
+  <div class="comments">//----&lt; shutdown message &gt;-----------------------------------------</div>
+
+  ~ClientHandler() 
+  <div class="functions">{ 
+    StaticLogger&lt;1&gt;::write("\n  -- ClientHandler destroyed;"); 
+  }</div>
+  <div class="comments">//----&lt; set BlockingQueue &gt;----------------------------------------</div>
+
+  void setQueue(BlockingQueue&lt;Message&gt;* pQ)
+  <div class="functions">{
+    pQ_ = pQ;
+  }</div>
+  <div class="comments">//----&lt; frame message string by reading bytes from socket &gt;--------</div>
+
+  std::string readMsg(Socket& socket)
+  <div class="functions">{
+    std::string temp, msgString;
+    while (socket.validState())
+    {
+      temp = socket.recvString('\n');  <div class="comments">// read attribute</div>
+      msgString += temp;
+      if (temp.length() &lt; 2)           <div class="comments">// if empty line we are done</div>
+        break;
+    }
+    return msgString;
+  }</div>
+  <div class="comments">//----&lt; receive file blocks &gt;--------------------------------------</div>
+  <div class="comments">/*
+  *  - expects msg to contain file and contentLength attributes
+  *  - expects to be connected to appropriate destination
+  *  - these requirements are established in Sender::start()
+  */</div>
+  bool receiveFile(Message msg)
+  <div class="functions">{
+    std::string fileName = msg.file();
+    std::string fileSpec = saveFilePath + "/" + fileName;
+    std::ofstream saveStream(fileSpec, std::ios::binary);
+    if (!saveStream.good())
+    {
+      return false;
+    }
+    while (true)
+    {
+      size_t blockSize = msg.contentLength();
+      if (blockSize == 0)
+        break;
+      Socket::byte terminator;
+      pSocket-&gt;recv(1, &terminator);
+      pSocket-&gt;recv(blockSize, rwBuffer);
+      saveStream.write(rwBuffer, blockSize);
+      std::string msgString = readMsg(*pSocket);
+      if (msgString.length() == 0)
+      {
+        break;
+      }
+      msg = Message::fromString(msgString);
+      if (msg.contentLength() == 0)
+        break;
+    }
+    saveStream.flush();
+    saveStream.close();
+    pQ_-&gt;enQ(msg);
+    return true;
+  }</div>
+  <div class="comments">//----&lt; reads messages from socket and enQs in rcvQ &gt;--------------</div>
+
+  void operator()(Socket socket)
+  <div class="functions">{
+    pSocket = &socket;
+    while (socket.validState())
+    {
+      std::string msgString = readMsg(socket);
+      if (msgString.length() == 0)
+      {
+        <div class="comments">// invalid message</div>
+        break;
+      }
+      Message msg = Message::fromString(msgString);
+      StaticLogger&lt;1&gt;::write("\n  -- " + clientHandlerName + " RecvThread read message: " + msg.name());
+      <div class="comments">//std::cout &lt;&lt; "\n  -- " + clientHandlerName + " RecvThread read message: " + msg.name();</div>
+      if (msg.containsKey("file"))
+      {
+        receiveFile(msg);
+      }
+      pQ_-&gt;enQ(msg);
+      <div class="comments">//std::cout &lt;&lt; "\n  -- message enqueued in rcvQ";</div>
+      if (msg.command() == "quit")
+        break;
+    }
+    StaticLogger&lt;1&gt;::write("\n  -- terminating ClientHandler thread");
+  }</div>
+private:
+  BlockingQueue&lt;Message&gt;* pQ_;
+  std::string clientHandlerName;
+  Socket* pSocket = nullptr;
+};</div>
+
+Comm::Comm(EndPoint ep, const std::string& name) : rcvr(ep, name), sndr(name), commName(name) <div class="functions">{}</div>
+
+void Comm::start()
+<div class="functions">{
+  BlockingQueue&lt;Message&gt;* pQ = rcvr.queue();
+  ClientHandler* pCh = new ClientHandler(pQ, commName);
+  <div class="comments">/*
+    There is a trivial memory leak here.  
+    This ClientHandler is a prototype used to make ClientHandler copies for each connection.
+    Those are not created on the heap, and are destroyed when the connection closes.
+    Only one Client handler prototype is created for each Comm object and will live until
+    the end of the program.
+
+    I will clean this up in the next version.
+  */</div>
+  rcvr.start(*pCh);
+  sndr.start();
+}</div>
+
+void Comm::stop()
+<div class="functions">{
+  rcvr.stop();
+  sndr.stop();
+}</div>
+
+void Comm::postMessage(Message msg)
+<div class="functions">{
+  sndr.postMessage(msg);
+}</div>
+
+Message Comm::getMessage()
+<div class="functions">{
+  return rcvr.getMessage();
+}</div>
+
+std::string Comm::name()
+<div class="functions">{
+  return commName;
+}</div>
+
+<div class="comments">//----&lt; test stub &gt;--------------------------------------------------</div>
+
+#ifdef TEST_COMM
+
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Test #1 - Demonstrates Sender and Receiver operations</div>
+
+void DemoSndrRcvr(const std::string& machineName)
+<div class="functions">{
+  SUtils::title("Demonstrating Sender and Receiver classes");
+
+  SocketSystem ss;
+  EndPoint ep1;
+  ep1.port = 9091;
+  ep1.address = "localhost";
+  Receiver rcvr1(ep1);
+  BlockingQueue&lt;Message&gt;* pQ1 = rcvr1.queue();
+
+  ClientHandler ch1(pQ1);
+  rcvr1.start(ch1);
+
+  EndPoint ep2;
+  ep2.port = 9092;
+  ep2.address = "localhost";
+  Receiver rcvr2(ep2);
+  BlockingQueue&lt;Message&gt;* pQ2 = rcvr2.queue();
+
+  ClientHandler ch2(pQ2);
+  rcvr2.start(ch2);
+
+  Sender sndr;
+  sndr.start();
+  bool connected = sndr.connect(ep1);
+  Message msg;
+  msg.name("msg #1");
+  msg.to(ep1);
+  msg.from(msg.to());
+  msg.command("do it");
+  msg.attribute("bodyAttrib", "zzz");
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  sndr in main posting message:  " &lt;&lt; msg.name();
+  sndr.postMessage(msg);
+
+  msg.name("msg #2");
+  msg.to(EndPoint(machineName, 9092));
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  sndr in main posting message:  " &lt;&lt; msg.name();
+  sndr.postMessage(msg);
+
+  Message rcvdMsg = rcvr1.getMessage();  <div class="comments">// blocks until message arrives</div>
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  rcvr1 in main received message: " &lt;&lt; rcvdMsg.name();
+  rcvdMsg.show();
+
+  rcvdMsg = rcvr2.getMessage();  <div class="comments">// blocks until message arrives</div>
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  rcvr2 in main received message: " &lt;&lt; rcvdMsg.name();
+  rcvdMsg.show();
+
+  SUtils::title("Sending message to EndPoint that doesn't exist");
+
+  msg.name("msg #3");
+  msg.to(EndPoint("DoesNotExist", 1111));  <div class="comments">// Unknown endpoint - should fail</div>
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  sndr in main posting message:  " &lt;&lt; msg.name();
+  msg.show();
+  sndr.postMessage(msg);                   <div class="comments">// will never reach rcvr</div>
+
+  msg.name("msg #4");
+  msg.to(EndPoint("localhost", 9091));
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  sndr in main posting message:  " &lt;&lt; msg.name();
+  sndr.postMessage(msg);                  <div class="comments">// this should succeed</div>
+  StaticLogger&lt;1&gt;::flush();
+  rcvdMsg = rcvr1.getMessage();
+  std::cout &lt;&lt; "\n  rcvr1 in main received message: " &lt;&lt; rcvdMsg.name();
+  rcvdMsg.show();
+
+  rcvr1.stop();
+  rcvr2.stop();
+  sndr.stop();
+  StaticLogger&lt;1&gt;::flush();
+
+  std::cout &lt;&lt; "\n  press enter to quit DemoSndrRcvr";
+  _getche();
+  std::cout &lt;&lt; "\n";
+}</div>
+
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Test #2 - Demonstrates Comm class using a single thread</div>
+<div class="comments">//           sending and receiving messages from two Comm</div>
+<div class="comments">//           instances.</div>
+
+void DemoCommClass(const std::string& machineName)
+<div class="functions">{
+  SUtils::title("Demonstrating Comm class");
+
+  SocketSystem ss;
+
+  EndPoint ep1("localhost", 9191);
+  Comm comm1(ep1, "comm1");
+  comm1.start();
+
+  EndPoint ep2("localhost", 9192);
+  Comm comm2(ep2, "comm2");
+  comm2.start();
+
+  <div class="comments">// send msg from comm1 to comm1</div>
+  Message msg;
+  msg.name("msg #1");
+  msg.to(ep1);
+  msg.from(ep1);
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm1 in main posting message:   " &lt;&lt; msg.name();
+  comm1.postMessage(msg);
+  msg = comm1.getMessage();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm1 in main received message:  " &lt;&lt; msg.name();
+  msg.show();
+
+  <div class="comments">// send msg from comm1 to comm2</div>
+  msg.name("msg #2");
+  msg.from(ep1);
+  msg.to(ep2);
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm1 in main posting message:  " &lt;&lt; msg.name();
+  comm1.postMessage(msg);
+  msg = comm2.getMessage();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm2 in main received message: " &lt;&lt; msg.name();
+  msg.show();
+
+  <div class="comments">// send msg from comm2 to comm1</div>
+  msg.name("msg #3");
+  msg.to(ep1);
+  msg.from(ep2);
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm2 in main posting message:  " &lt;&lt; msg.name();
+  comm2.postMessage(msg);
+  msg = comm1.getMessage();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm1 in main received message: " &lt;&lt; msg.name();
+  msg.show();
+
+  <div class="comments">// send msg from comm2 to comm2</div>
+  msg.name("msg #4");
+  msg.from(ep2);
+  msg.to(ep2);
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm2 in main posting message:  " &lt;&lt; msg.name();
+  comm2.postMessage(msg);
+  msg = comm2.getMessage();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  comm2 in main received message: " &lt;&lt; msg.name();
+  msg.show();
+
+  comm1.stop();
+  comm2.stop();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  press enter to quit DemoComm";
+  _getche();
+}</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Test #3 - Demonstrate server with two concurrent clients</div>
+<div class="comments">//           sending and receiving messages</div>
+
+<div class="comments">//----&lt; handler for first concurrent client &gt;------------------------</div>
+
+void ThreadProcClnt1()
+<div class="functions">{
+  Comm comm(EndPoint("localhost", 9891), "client1Comm");
+  comm.start();
+  EndPoint serverEP("localhost", 9890);
+  EndPoint clientEP("localhost", 9891);
+  size_t IMax = 3;
+  for (size_t i = 0; i &lt; IMax; ++i)
+  {
+    Message msg(serverEP, clientEP);
+    msg.name("client #1 : msg #" + Utilities::Converter&lt;size_t&gt;::toString(i));
+    std::cout &lt;&lt; "\n  " + comm.name() + " posting:  " &lt;&lt; msg.name();
+    comm.postMessage(msg);
+    Message rply = comm.getMessage();
+    std::cout &lt;&lt; "\n  " + comm.name() + " received: " &lt;&lt; rply.name();
+    ::Sleep(100);
+  }
+  Message fileMsg(serverEP, clientEP);
+  fileMsg.name("fileSender");
+  fileMsg.file("logger.cpp");
+  comm.postMessage(fileMsg);
+  ::Sleep(200);
+
+  Message stop;
+  stop.name("stop");
+  stop.to(serverEP);
+  stop.command("stop");
+  comm.postMessage(stop);
+}</div>
+<div class="comments">//----&lt; handler for 2nd concurrent client &gt;--------------------------</div>
+
+void ThreadProcClnt2()
+<div class="functions">{
+  Comm comm(EndPoint("localhost", 9892), "client2Comm");
+  comm.start();
+  EndPoint serverEP("localhost", 9890);
+  EndPoint clientEP("localhost", 9892);
+  size_t IMax = 3;
+  for (size_t i = 0; i &lt; IMax; ++i)
+  {
+    Message msg(serverEP, clientEP);
+    msg.name("client #2 : msg #" + Utilities::Converter&lt;size_t&gt;::toString(i));
+    std::cout &lt;&lt; "\n  " + comm.name() + " posting:  " &lt;&lt; msg.name();
+    comm.postMessage(msg);
+    Message rply = comm.getMessage();
+    std::cout &lt;&lt; "\n  " + comm.name() + " received: " &lt;&lt; rply.name();
+  }
+  Message fileMsg(serverEP, clientEP);
+  fileMsg.name("fileSender");
+  fileMsg.file("logger.h");
+  comm.postMessage(fileMsg);
+  ::Sleep(200);
+}</div>
+<div class="comments">//----&lt; server demonstrates two-way asynchronous communication &gt;-----</div>
+<div class="comments">/*
+*  - One server receiving messages and sending replies to
+*    two concurrent clients.
+*/</div>
+void DemoClientServer()
+<div class="functions">{
+  SUtils::title("Demonstrating Client-Server - one server with two concurrent clients");
+
+  SocketSystem ss;
+
+  EndPoint serverEP("localhost", 9890);
+  EndPoint clientEP("localhost", 9891);
+  Comm comm(serverEP, "serverComm");
+  comm.start();
+  std::thread t1(ThreadProcClnt1);
+  t1.detach();
+  std::thread t2(ThreadProcClnt2);
+  t2.detach();
+
+  Message msg, rply;
+  rply.name("reply");
+  size_t count = 0;
+  while (true)
+  {
+    <div class="comments">// display each incoming message</div>
+
+    msg = comm.getMessage();
+    std::cout &lt;&lt; "\n  " + comm.name() + " received message: " &lt;&lt; msg.name();
+
+    if (msg.containsKey("file"))  <div class="comments">// is this a file message?</div>
+    {
+      if(msg.contentLength() == 0)
+        std::cout &lt;&lt; "\n  " + comm.name() + " received file \"" + msg.file() + "\" from " + msg.name();
+    }
+    else  <div class="comments">// non-file message</div>
+    {
+      rply.to(msg.from());
+      rply.from(serverEP);
+      rply.name("server reply #" + Utilities::Converter&lt;size_t&gt;::toString(++count) + " to " + msg.from().toString());
+
+      comm.postMessage(rply);
+      if (msg.command() == "stop")
+      {
+        break;
+      }
+    }
+  }
+
+  comm.stop();
+  StaticLogger&lt;1&gt;::flush();
+  std::cout &lt;&lt; "\n  press enter to quit DemoClientServer";
+  _getche();
+}</div>
+
+Cosmetic cosmetic;
+
+int main()
+<div class="functions">{
+  SUtils::Title("Demo of Message-Passing Communication");
+  Utilities::putline();
+
+  StaticLogger&lt;1&gt;::attach(&std::cout);
+
+  <div class="comments">///////////////////////////////////////////////////////////////////</div>
+  <div class="comments">// remove comment on line below to show many of the gory details</div>
+  <div class="comments">//</div>
+  <div class="comments">//StaticLogger&lt;1&gt;::start();</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////////</div>
+  <div class="comments">// if you uncomment the lines below, you will run all demos</div>
+
+  <div class="comments">//DemoSndrRcvr("Odin");  // replace "Odin" with your machine name</div>
+  <div class="comments">//DemoCommClass("Odin");</div>
+  DemoClientServer();
+
+  return 0;
+}</div>
+#endif
+</pre>
+</body
+></html
+>

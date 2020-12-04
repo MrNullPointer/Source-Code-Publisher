@@ -1,0 +1,443 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br>This file is not dependent on anything<pre>
+#pragma once
+<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// CodeUtilities.h - small, generally useful, helper classes         //</div>
+<div class="comments">// ver 1.3                                                           //</div>
+<div class="comments">// Language:    C++, Visual Studio 2017                              //</div>
+<div class="comments">// Application: Most Projects, CSE687 - Object Oriented Design       //</div>
+<div class="comments">// Author:      Ammar Salmon, TA, CSE687                             //</div>
+<div class="comments">// Source:      Jim Fawcett, Syracuse University, CST 4-187          //</div>
+<div class="comments">//              jfawcett@twcny.rr.com                                //</div>
+<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+<div class="comments">/*
+* Package Operations:
+* -------------------
+* This package provides classes:
+* - ProcessCmdLine    extracts path, options, patterns, and a number from command line
+* - Converter&lt;T&gt;      converts T to and from strings
+* - Box&lt;T&gt;            converts primitive type to instance of a class
+* - PersistFactory&lt;T&gt; adds toXml() method to T
+*
+* Build Process:
+* --------------
+* Required Files:
+*   CodeUtilities.h
+*
+* Maintenance History:
+* --------------------
+* ver 1.3 : 16 Aug 2018
+* - added default usage text
+* ver 1.2 : 11 Aug 2018
+* - added ProcessCmdLine::hasOption method
+* - fixed bugs in ProcessCmdLine::showCmdLine
+*   and ProcessCmdLine::showOptions
+* ver 1.1 : 10 Aug 2018
+* - added ProcessCmdLine class
+* ver 1.0 : 12 Jan 2018
+* - first release
+* - refactored from earlier Utilities.h
+*
+* Notes:
+* ------
+* - Designed to provide all functionality in header file.
+* - Implementation file only needed for test and demo.
+*
+* Planned Additions and Changes:
+* ------------------------------
+* - none yet
+*/</div>
+
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;sstream&gt;
+#include &lt;iostream&gt;
+#include &lt;regex&gt;
+
+namespace CodeUtilities
+{
+	<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// preface function</div>
+	<div class="comments">// - used to add a string preface to an output, e.g., "\n  "</div>
+
+	inline void preface(const std::string& msg = "", bool doReturn = true, std::ostream& out = std::cout, const std::string& prefix = "  ")
+<div class="functions">	{
+		if (doReturn) out &lt;&lt; "\n" &lt;&lt; prefix &lt;&lt; msg;
+	}</div>
+
+	inline std::string defaultUsage()
+<div class="functions">	{
+		std::string usage;
+		usage += "\n  Command Line: path [/option]* [/pattern]* [integer]";
+		usage += "\n    path is relative or absolute path where processing begins";
+		usage += "\n    [/option]* are one or more options of the form /s, /r, etc.";
+		usage += "\n    [pattern]* are one or more pattern strings used for matching";
+		usage += "\n    [integer] is the maximum number of items to process";
+		usage += "\n";
+		return usage;
+	}</div>
+
+	<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// ProcessCmdLine class</div>
+	<div class="comments">// - extracts path, patterns, options, number</div>
+
+	class ProcessCmdLine
+<div class="classes">	{
+	public:
+		using Usage = std::string;
+		using Path = std::string;
+		using Option = int;
+		using Options = std::vector&lt;Option&gt;;
+		using Pattern = std::string;
+		using Patterns = std::vector&lt;Pattern&gt;;
+		using Regexes = std::vector&lt;std::string&gt;;
+		using Number = long int;
+
+		ProcessCmdLine(int argc, char** argv, std::ostream& out = std::cout);
+		ProcessCmdLine(const ProcessCmdLine&) = delete;
+		ProcessCmdLine& operator=(const ProcessCmdLine&) = delete;
+
+		bool parseError();
+		Path path();
+		void path(const Path& path);
+		Options options();
+		void option(Option op);
+		bool hasOption(Option op);
+		Patterns patterns();
+		Regexes regexes();
+		void pattern(const Pattern& patt);
+		Number maxItems();
+		void maxItems(Number number);
+		void usage(const Usage& usage);
+		void usage();
+		void showCmdLine(int argc, char** argv);
+		void showCmdLine();
+		void showPath();
+		void showOptions();
+		void showPatterns();
+		void showRegexes();
+		void showMaxItems();
+
+	private:
+		bool isValidRegex(const std::string& regex);
+	private:
+		Usage usage_;
+		Path path_;
+		Patterns patterns_;
+		Regexes regexes_;
+		Options options_;
+		int maxItems_ = 0;
+		bool parseError_ = false;
+		std::ostream& out_;
+	};</div>
+
+	<div class="comments">/*----&lt; path operations &gt;------------------------------------------*/</div>
+
+	inline void ProcessCmdLine::path(const Path& path)
+<div class="functions">	{
+		path_ = path;
+	}</div>
+
+	inline ProcessCmdLine::Path ProcessCmdLine::path()
+<div class="functions">	{
+		return path_;
+	}</div>
+
+	inline void ProcessCmdLine::showPath()
+<div class="functions">	{
+		out_ &lt;&lt; path_ &lt;&lt; " ";
+	}</div>
+
+	<div class="comments">/*----&lt; options operations &gt;---------------------------------------*/</div>
+
+	inline void ProcessCmdLine::option(Option option)
+<div class="functions">	{
+		options_.push_back(option);
+	}</div>
+
+	inline ProcessCmdLine::Options ProcessCmdLine::options()
+<div class="functions">	{
+		return options_;
+	}</div>
+
+	inline bool ProcessCmdLine::hasOption(Option op)
+<div class="functions">	{
+		for (auto item : options_)
+		{
+			if (item == op)
+			{
+				return true;
+			}
+		}
+		return false;
+	}</div>
+
+	inline void ProcessCmdLine::showOptions()
+<div class="functions">	{
+		for (auto opt : options_)
+		{
+			out_ &lt;&lt; '/' &lt;&lt; char(opt) &lt;&lt; " ";
+		}
+	}</div>
+
+	<div class="comments">/*----&lt; patterns operations &gt;--------------------------------------*/</div>
+
+	inline void ProcessCmdLine::pattern(const Pattern& pattern)
+<div class="functions">	{
+		patterns_.push_back(pattern);
+	}</div>
+
+	inline ProcessCmdLine::Patterns ProcessCmdLine::patterns()
+<div class="functions">	{
+		return patterns_;
+	}</div>
+
+	inline ProcessCmdLine::Regexes ProcessCmdLine::regexes()
+<div class="functions">	{
+		return regexes_;
+	}</div>
+
+	inline void ProcessCmdLine::showPatterns()
+<div class="functions">	{
+		for (auto patt : patterns_)
+		{
+			out_ &lt;&lt; patt &lt;&lt; " ";
+		}
+	}</div>
+
+	inline void ProcessCmdLine::showRegexes()
+<div class="functions">	{
+		for (auto regex : regexes_)
+		{
+			out_ &lt;&lt; regex &lt;&lt; " ";
+		}
+	}</div>
+
+	<div class="comments">/*----&lt; maxItems operations &gt;--------------------------------------*/</div>
+
+	inline void ProcessCmdLine::maxItems(Number maxItems)
+<div class="functions">	{
+		maxItems_ = maxItems;
+	}</div>
+
+	inline ProcessCmdLine::Number ProcessCmdLine::maxItems()
+<div class="functions">	{
+		return maxItems_;
+	}</div>
+
+	inline void ProcessCmdLine::showMaxItems()
+<div class="functions">	{
+		if (maxItems_ != 0)
+			out_ &lt;&lt; maxItems_ &lt;&lt; " ";
+	}</div>
+
+	inline bool ProcessCmdLine::isValidRegex(const std::string & regex)
+<div class="functions">	{
+		bool res = true;
+		try
+		{
+			std::regex tmp(regex);
+		}
+		catch (const std::regex_error& e)
+		{
+			(e);
+			res = false;
+		}
+		return res;
+	}</div>
+
+	<div class="comments">/*----&lt; parseError operation &gt;-------------------------------------*/</div>
+
+	inline bool ProcessCmdLine::parseError()
+<div class="functions">	{
+		return parseError_;
+	}</div>
+
+	<div class="comments">/*----&lt; command line operations &gt;----------------------------------*/</div>
+
+	inline ProcessCmdLine::ProcessCmdLine(int argc, char** argv, std::ostream& out) : out_(out)
+<div class="functions">	{
+		<div class="comments">//usage_ = defaultUsage();</div>
+		if (argc &lt; 2)
+		{
+			out &lt;&lt; "\n  command line parse error";
+			<div class="comments">//usage();</div>
+			parseError_ = true;
+			return;
+		}
+
+		path_ = argv[1];
+
+		for (int i = 2; i &lt; argc; ++i)
+		{
+			if (argv[i][0] == '/')
+			{
+				if (strlen(argv[i]) &gt; 2)
+					continue;
+				options_.push_back(argv[i][1]);
+			}
+			else
+			{
+				int number = atoi(argv[i]);
+				if (number &gt; 0)
+				{
+					maxItems_ = number;
+				}
+				else if (isValidRegex(argv[i]))
+				{
+					regexes_.push_back(argv[i]);
+				}
+				else
+				{
+					patterns_.push_back(argv[i]);
+				}
+			}
+		}
+	}</div>
+
+	inline void ProcessCmdLine::showCmdLine(int argc, char** argv)
+<div class="functions">	{
+		if (argc &gt; 2)
+		{
+			out_ &lt;&lt; "  empty";
+			return;
+		}
+		for (int i = 0; i &lt; argc; ++i)
+		{
+			if (argv[i] == "0")
+				continue;
+			if (argv[i][0] == '/')
+			{
+				out_ &lt;&lt; "/" + char(argv[i][1]) &lt;&lt; " ";
+			}
+			else
+			{
+				out_ &lt;&lt; argv[i] &lt;&lt; " ";
+			}
+		}
+	}</div>
+
+	inline void ProcessCmdLine::showCmdLine()
+<div class="functions">	{
+		if (path_ == "" && options_.size() == 0 && patterns_.size() == 0)
+		{
+			out_ &lt;&lt; "empty";
+			return;
+		}
+		showPath();
+		preface("", false);
+		showOptions();
+		preface("", false);
+		showPatterns();
+		preface("", false);
+		showMaxItems();
+	}</div>
+
+	inline void ProcessCmdLine::usage(const Usage& usage)
+<div class="functions">	{
+		usage_ = usage;
+	}</div>
+
+	inline void ProcessCmdLine::usage()
+<div class="functions">	{
+		out_ &lt;&lt; usage_;
+	}</div>
+
+	<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// Converter class</div>
+	<div class="comments">// - supports converting unspecified types to and from strings</div>
+	<div class="comments">// - a type is convertible if it provides insertion and extraction</div>
+	<div class="comments">//   operators</div>
+
+	template &lt;typename T&gt;
+	class Converter
+<div class="classes">	{
+	public:
+		static std::string toString(const T& t);
+		static T toValue(const std::string& src);
+	};</div>
+	<div class="comments">//----&lt; convert t to a string &gt;--------------------------------------</div>
+
+	template &lt;typename T&gt;
+	std::string Converter&lt;T&gt;::toString(const T& t)
+<div class="functions">	{
+		std::ostringstream out;
+		out &lt;&lt; t;
+		return out.str();
+	}</div>
+	<div class="comments">//----&lt; convert a string to an instance of T &gt;-----------------------</div>
+	<div class="comments">/*
+	*  - the string must have been generated by Converter&lt;T&gt;::toString(const T& t)
+	*  - T::operator&gt;&gt; must be the inverse of T::operator&lt;&lt;
+	*/</div>
+	template&lt;typename T&gt;
+	T Converter&lt;T&gt;::toValue(const std::string& src)
+<div class="functions">	{
+		std::istringstream in(src);
+		T t;
+		in &gt;&gt; t;
+		return t;
+	}</div>
+
+	<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// Box class</div>
+	<div class="comments">// - wraps primitive type in class</div>
+	<div class="comments">// - preserves primitive syntax</div>
+
+	template&lt;typename T&gt;
+	class Box
+<div class="classes">	{
+	public:
+		Box() : primitive_(T()) <div class="functions">{}</div>
+		Box(const T& t) : primitive_(t) <div class="functions">{}</div>
+		operator T&() { return primitive_; }
+		T& operator=(const T& t) <div class="functions">{ primitive_ = t; return primitive_; }</div>
+	private:
+		T primitive_;
+	};</div>
+
+	<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// ToXml interface</div>
+	<div class="comments">// - defines language for creating XML elements</div>
+
+	struct ToXml
+<div class="classes">	{
+		virtual std::string toXml(const std::string& tag) = 0;
+		virtual ~ToXml() <div class="functions">{}</div>;
+	};</div>
+
+	<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+	<div class="comments">// PersistFactory&lt;T&gt; class</div>
+	<div class="comments">// - wraps an instance of user-defined type</div>
+	<div class="comments">// - preserves semantics of user-defined type</div>
+	<div class="comments">// - adds toXml("tag") method</div>
+
+	template&lt;typename T&gt;
+	class PersistFactory : public T, ToXml
+<div class="classes">	{
+	public:
+		PersistFactory() = default;
+		PersistFactory(const T& t)
+	<div class="functions">	{
+			T::operator=(t);
+		}</div>
+		std::string toXml(const std::string& tag)
+	<div class="functions">	{
+			std::ostringstream out;
+			out &lt;&lt; "&lt;" &lt;&lt; tag &lt;&lt; "&gt;" &lt;&lt; *this &lt;&lt; "&lt;/" &lt;&lt; tag &lt;&lt; "&gt;";
+			return out.str();
+		}</div>
+	};</div>
+}
+</pre>
+</body
+></html
+>

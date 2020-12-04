@@ -1,0 +1,76 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br><a href="ActionsAndRules.h.html ">ActionsAndRules.h</a>&nbsp&nbsp&nbsp&nbsp<a href="ActionsAndRules.h.html ">ActionsAndRules.h</a>&nbsp&nbsp&nbsp&nbsp<pre>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">//  ActionsAndRules.cpp - implements new parsing rules and actions //</div>
+<div class="comments">//  ver 3.4                                                        //</div>
+<div class="comments">//  Language:      Visual C++ 2008, SP1                            //</div>
+<div class="comments">//  Platform:      Dell Precision T7400, Vista Ultimate SP1        //</div>
+<div class="comments">//  Application:   Prototype for CSE687 Pr1, Sp09                  //</div>
+<div class="comments">//  Author:        Jim Fawcett, CST 4-187, Syracuse University     //</div>
+<div class="comments">//                 (315) 443-3948, jfawcett@twcny.rr.com           //</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+
+#include "ActionsAndRules.h"
+#include "../Utilities/Utilities.h"
+
+using namespace CodeAnalysis;
+
+Repository* Repository::instance;
+
+#ifdef TEST_ACTIONSANDRULES
+
+#include &lt;iostream&gt;
+#include "ActionsAndRules.h"
+#include "Tokenizer.h"
+#include "Semiression.h"
+
+int main(int argc, char* argv[])
+<div class="functions">{
+  std::cout &lt;&lt; "\n  Testing ActionsAndRules class\n "
+            &lt;&lt; std::string(30,'=') &lt;&lt; std::endl;
+
+  try
+  {
+    Utilities::StringHelpers::Title(
+      "Actions and Rules - these construction tests are no longer valid"
+    );
+    <div class="comments">//PreprocStatement pps;</div>
+    <div class="comments">//pps.addAction(&ppq);</div>
+
+    <div class="comments">//FunctionDefinition fnd;</div>
+    <div class="comments">//PrettyPrintToQ pprtQ(resultsQ);</div>
+    <div class="comments">//fnd.addAction(&pprtQ);</div>
+
+    <div class="comments">//Toker toker("../ActionsAndRules.h");</div>
+    <div class="comments">//Semi se(&toker);</div>
+    <div class="comments">//Parser parser(&se);</div>
+    <div class="comments">//parser.addRule(&pps);</div>
+    <div class="comments">//parser.addRule(&fnd);</div>
+    <div class="comments">//while(se.get())</div>
+    <div class="comments">//  parser.parse();</div>
+    <div class="comments">//size_t len = resultsQ.size();</div>
+    <div class="comments">//for(size_t i=0; i&lt;len; ++i)</div>
+    <div class="comments">//{</div>
+    <div class="comments">//  std::cout &lt;&lt; "\n  " &lt;&lt; resultsQ.front().c_str();</div>
+    <div class="comments">//  resultsQ.pop();</div>
+    <div class="comments">//}</div>
+    std::cout &lt;&lt; "\n\n";
+  }
+  catch(std::exception& ex)
+  {
+    std::cout &lt;&lt; "\n\n  " &lt;&lt; ex.what() &lt;&lt; "\n\n";
+  }
+}</div>
+#endif
+</pre>
+</body
+></html
+>

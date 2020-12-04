@@ -1,0 +1,20 @@
+ImageRuntimeVersion: v4.0.30319
+Assembly DgbShim, Version=0.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=SHA1, flags=PublicKey
+Assembly mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Class DgbShim: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Interfaces:
+    System.IDisposable
+  Methods:
+    initialization(vector<std::basic_string<char\,std::char_traits<char>\,std::allocator<char> >\,std::allocator<std::basic_string<char\,std::char_traits<char>\,std::allocator<char> > > >*, Int32, SByte**): PrivateScope, Public, HideBySig
+    start(List`1): PrivateScope, Public, HideBySig
+    vectorToList(vector<std::basic_string<char\,std::char_traits<char>\,std::allocator<char> >\,std::allocator<std::basic_string<char\,std::char_traits<char>\,std::allocator<char> > > >* IsImplicitlyDereferenced): PrivateScope, Public, HideBySig
+    Dispose(): PrivateScope, Public, Final, Virtual, HideBySig

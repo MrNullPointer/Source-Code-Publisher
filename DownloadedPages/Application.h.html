@@ -1,0 +1,124 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br>This file is not dependent on anything<pre>
+#pragma once
+<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+<div class="comments">// Application.h - provides demonstration methods doFile and doDir   //</div>
+<div class="comments">// ver 1.1                                                           //</div>
+<div class="comments">// Jim Fawcett, CSE687 - Object Oriented Design, Fall 2018           //</div>
+<div class="comments">///////////////////////////////////////////////////////////////////////</div>
+<div class="comments">/*
+*  Package Operations:
+*  -------------------
+*  This package represents an application that needs to navigate directories
+*  as part of its application.  It uses DirExploreT, with no modification
+*  for the application's needs.
+*
+*  Required Files:
+*  ---------------
+*  Application.h, application.cpp
+*  DirExplorerT.h, DirExplorerT.cpp  <div class="comments">// DirExplorerT.cpp just for testing</div>
+*  FileSystem.h, ,FileSystem.cpp
+*
+*  Maintenance History:
+*  --------------------
+*  ver 1.1 : 19 Aug 2018
+*  - Converted to inline methods declared below class declaration.
+*  - Added all the applications processing to main.
+*  ver 1.0 : 11 Aug 2018
+*  - first release
+*/</div>
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+
+class Application
+<div class="classes">{
+public:
+  Application();
+  
+  <div class="comments">// Application defines how to handle files and dirs, when to</div>
+  <div class="comments">// quit, and how to display final results.</div>
+  <div class="comments">// None of this requires alteration of DirExplorerT's code.</div>
+
+  void doFile(const std::string& filename);
+  void doDir(const std::string& dirname);
+  size_t fileCount();
+  size_t dirCount();
+  bool done();
+  void showStats();
+
+  <div class="comments">// configure application options</div>
+
+  void showAllInCurrDir(bool showAllFilesInCurrDir);
+  bool showAllInCurrDir();
+  void maxItems(size_t maxItems);
+  
+private:
+  size_t fileCount_ = 0;  <div class="comments">// number of files processed</div>
+  size_t dirCount_ = 0;   <div class="comments">// number of directories processed</div>
+  size_t maxItems_ = 0;   <div class="comments">// upper bound on number of files to process</div>
+  bool showAll_ = false;  <div class="comments">// if true, show empty directories</div>
+};</div>
+
+Application::Application()
+<div class="functions">{
+  std::cout &lt;&lt; "\n  Using Application methods doFile and doDir\n";
+}</div>
+void Application::doFile(const std::string& filename)
+<div class="functions">{
+  ++fileCount_;
+  if(showAll_ || !done())
+  {
+    std::cout &lt;&lt; "\n  file--&gt;    " &lt;&lt; filename;
+  }
+}</div>
+void Application::doDir(const std::string& dirname)
+<div class="functions">{
+  ++dirCount_;
+  std::cout &lt;&lt; "\n  dir---&gt;  " &lt;&lt; dirname;
+}</div>
+size_t Application::fileCount()
+<div class="functions">{
+  return fileCount_;
+}</div>
+size_t Application::dirCount()
+<div class="functions">{
+  return dirCount_;
+}</div>
+void Application::showAllInCurrDir(bool showAllFilesInCurrDir)
+<div class="functions">{
+  showAll_ = showAllFilesInCurrDir;
+}</div>
+bool Application::showAllInCurrDir()
+<div class="functions">{
+  return showAll_;
+}</div>
+void Application::maxItems(size_t maxItems)
+<div class="functions">{
+  maxItems_ = maxItems;
+}</div>
+<div class="comments">//----&lt; show final counts for files and dirs &gt;---------------------</div>
+
+void Application::showStats()
+<div class="functions">{
+  std::cout &lt;&lt; "\n\n  processed " &lt;&lt; fileCount_ &lt;&lt; " files in " &lt;&lt; dirCount_ &lt;&lt; " directories";
+  if(done())
+  {
+    std::cout &lt;&lt; "\n  stopped because max number of files exceeded";
+  }
+}</div>
+bool Application::done()
+<div class="functions">{
+  return (0 &lt; maxItems_ && maxItems_ &lt; fileCount_);
+}</div>
+</pre>
+</body
+></html
+>

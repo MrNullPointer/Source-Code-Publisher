@@ -1,0 +1,1391 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br><a href="AbstrSynTree.h.html ">AbstrSynTree.h</a>&nbsp&nbsp&nbsp&nbsp<pre>
+#ifndef ACTIONSANDRULES_H
+#define ACTIONSANDRULES_H
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">//  ActionsAndRules.h - declares new parsing rules and actions     //</div>
+<div class="comments">//  ver 3.5                                                        //</div>
+<div class="comments">//  Language:      Visual C++ 2008, SP1                            //</div>
+<div class="comments">//  Platform:      Dell Precision T7400, Vista Ultimate SP1        //</div>
+<div class="comments">//  Application:   Prototype for CSE687 Pr1, Sp09                  //</div>
+<div class="comments">//  Author:        Jim Fawcett, CST 4-187, Syracuse University     //</div>
+<div class="comments">//                 (315) 443-3948, jfawcett@twcny.rr.com           //</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">/*
+  Module Operations: 
+  ==================
+  This module defines several action classes.  Its classes provide 
+  specialized services needed for specific applications.  The modules
+  Parser, Semiression, and Tokenizer, are intended to be reusable
+  without change.  This module provides a place to put extensions of
+  these facilities and is not expected to be reusable. 
+
+  Required files
+  ==============
+    - Parser.h, Parser.cpp, ScopeStack.h, ScopeStack.cpp,
+      ActionsAndRules.h, ActionsAndRules.cpp, ConfigureParser.cpp,
+      ITokenCollection.h, Semiression.h, Semiression.cpp, tokenizer.h, tokenizer.cpp
+
+  Maintenance History:
+  ====================
+  ver 3.5 : 11 Feb 2019
+  - small changes spread over many of the Rule and Action classes, caused
+    by changing the lexical scanner, which forced some changes to the
+    scanner's interface (sigh!)
+  ver 3.4 : 28 May 2017
+  - Added several tests for scopestack size in actions to fix exceptions
+    thrown when processing code that won't compile.
+  ver 3.3 : 26 Feb 2017
+  - Fixed bug in public data analysis with changes to rule CppDeclaration
+    and its action HandleCppDeclaration.
+  - Fixed a minor bug in name collection for operators.  Won't be important
+    for dependency analysis.
+  ver 3.2 : 28 Aug 16
+  - fixed errors in many rules and actions based on lots of testing
+  - cleaned up text, removing comments and improving prologues
+  ver 3.1 : 23 Aug 16
+  - qualified input pointers in rules and actions as const
+  - cleaned up code by removing unreachables and commented code, and by simplifying 
+  ver 3.0 : 06 Aug 16
+  - Added use of AbstrSynTree
+  - Added new rules and actions
+  - Renamed and modified most of the other actions and rules
+  ver 2.1 : 15 Feb 16
+  - small functional change to a few of the actions changes display strategy
+  - preface the (new) Toker and Semi with Lexer namespace
+  ver 2.0 : 01 Jun 11
+  - added processing on way to building strong code analyzer
+  ver 1.1 : 17 Jan 09
+  - changed to accept a pointer to interfaced ITokenCollection instead
+    of a Semiression
+  ver 1.0 : 12 Jan 06
+  - first release
+
+  Planned Changes:
+  ================
+  C++ lambda detection needs strengthening
+*/</div>
+<div class="comments">//</div>
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;sstream&gt;
+#include &lt;iomanip&gt;
+#include "Parser.h"
+#include "../GrammarHelpers/GrammarHelpers.h"
+#include "../SemiExpression/ITokenCollection.h"
+#include "../ScopeStack/ScopeStack.h"
+#include "../Tokenizer/Toker.h"
+#include "../SemiExpression/Semi.h"
+#include "../AbstractSyntaxTree/AbstrSynTree.h"
+#include "../../CppParser/Logger/Logger.h"
+#include "../FileSystem/FileSystem.h"
+
+namespace CodeAnalysis
+{  
+  <div class="comments">///////////////////////////////////////////////////////////////////</div>
+  <div class="comments">// Repository instance is used to share resources</div>
+  <div class="comments">// among all actions.</div>
+
+  enum Language { C <div class="comments">/* not implemented */</div>, Cpp, CSharp };
+
+  class Repository  <div class="comments">// application specific</div>
+  <div class="classes">{
+  public:
+    using Rslt = Logging::StaticLogger&lt;0&gt;;  <div class="comments">// use for application results</div>
+    using Demo = Logging::StaticLogger&lt;1&gt;;  <div class="comments">// use for demonstrations of processing</div>
+    using Dbug = Logging::StaticLogger&lt;2&gt;;  <div class="comments">// use for debug output</div>
+    using Package = std::string;
+    using Path = std::string;
+
+  private:
+    Language language_ = Language::Cpp;
+    Path path_;
+    ScopeStack&lt;ASTNode*&gt; stack;
+    AbstrSynTree ast;
+    ASTNode* pGlobalScope;
+    Package package_;
+    Lexer::Toker* p_Toker;
+    Access currentAccess_ = Access::publ;
+    static Repository* instance;
+  
+  public:
+    
+    Repository(Lexer::Toker* pToker) : ast(stack)
+    <div class="functions">{
+      p_Toker = pToker;
+      pGlobalScope = stack.top();  <div class="comments">// installed in AST constructor</div>
+      instance = this;
+    }</div>
+
+    ~Repository()
+    <div class="functions">{
+      Dbug::write("\n  deleting repository");
+    }</div>
+
+    Language& language() <div class="functions">{ return language_; }</div>
+
+    Package& package() <div class="functions">{ return package_; }</div>
+
+    Path& currentPath() <div class="functions">{ return path_; }</div>
+
+    Access& currentAccess() <div class="functions">{ return currentAccess_; }</div>
+
+    static Repository* getInstance() <div class="functions">{ return instance; }</div>
+
+    ScopeStack&lt;ASTNode*&gt;& scopeStack() <div class="functions">{ return stack; }</div>
+
+    AbstrSynTree& AST() <div class="functions">{ return ast; }</div>
+
+    ASTNode* getGlobalScope() <div class="functions">{ return pGlobalScope; }</div>
+
+    Lexer::Toker* Toker() <div class="functions">{ return p_Toker; }</div>
+
+    size_t lineCount() 
+    <div class="functions">{ 
+      return (size_t)(p_Toker-&gt;lineCount()); 
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect beginning of scope</div>
+
+  class BeginScope : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test begin scope", *pTc);
+
+      <div class="comments">// don't parse Semi with single semicolon token</div>
+
+      if (pTc-&gt;size() == 1 && (*pTc)[0] == ";")
+        return IRule::Stop;
+
+      if (pTc-&gt;contains("{"))
+      {
+        doActions(pTc);
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to handle scope stack at beginning of scope</div>
+
+  class HandleBeginScope : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+  public:
+    HandleBeginScope(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("handle begin scope", *pTc);
+
+      ASTNode* pElem = new ASTNode;
+      pElem-&gt;type_ = "anonymous";
+      pElem-&gt;name_ = "none";
+      pElem-&gt;package_ = p_Repos-&gt;package();
+      pElem-&gt;startLineCount_ = p_Repos-&gt;lineCount();
+      pElem-&gt;endLineCount_ = 1;
+      pElem-&gt;path_ = p_Repos-&gt;currentPath();
+      <div class="comments">/*
+       * make this ASTNode child of ASTNode on stack top
+       * then push onto stack
+       */</div>
+      p_Repos-&gt;AST().add(pElem);
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect end of scope</div>
+
+  class EndScope : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test end scope", *pTc);
+
+      size_t posCloseBrace;
+      pTc-&gt;find("}", posCloseBrace);
+      if (posCloseBrace &lt; pTc-&gt;size())
+      {
+        doActions(pTc);
+        return IRule::Stop;
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to handle scope stack at end of scope</div>
+
+  class HandleEndScope : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+  public:
+    using Dbug = Logging::StaticLogger&lt;2&gt;;
+
+    HandleEndScope(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle end scope", *pTc);
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* pElem = p_Repos-&gt;AST().pop();
+      if (pElem == nullptr)
+        return;
+
+      pElem-&gt;endLineCount_ = p_Repos-&gt;lineCount();
+      if (pElem-&gt;type_ == "class" || pElem-&gt;type_ == "struct")
+        (pElem-&gt;endLineCount_)++;
+
+      p_Repos-&gt;currentAccess() = Access::priv;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect access for C++</div>
+
+  class DetectAccessSpecifier : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test access spec", *pTc);
+
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::Cpp)
+        return IRule::Continue;
+
+      size_t pos;
+      pTc-&gt;find(":", pos);
+      if (0 &lt; pos && pos &lt; pTc-&gt;size())
+      {
+        const std::string tok = (*pTc)[pos - 1];
+        if (tok == "public" || tok == "protected" || tok == "private")
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to handle access specifier</div>
+
+  class HandleAccessSpecifier : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleAccessSpecifier(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle access spec: ", *pTc);
+
+      std::string tok = (*pTc)[pTc-&gt;size() - 2];
+      Access& access = p_Repos-&gt;currentAccess();
+      if (tok == "public")
+        access = Access::publ;
+      else if (tok == "protected")
+        access = Access::prot;
+      else
+        access = Access::priv;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect preprocessor statements</div>
+
+  class PreprocStatement : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test preproc statement: ", *pTc);
+
+      size_t pPos;
+      pTc-&gt;find("#", pPos);
+      if (pPos &lt; pTc-&gt;size())
+      {
+		  size_t foundquote;
+		  size_t foundinclude;
+		  pTc-&gt;find("include", foundinclude);
+		  pTc-&gt;find("&lt;", foundquote);
+		  if (foundinclude &lt; pTc-&gt;size() && foundquote &gt;= pTc-&gt;size()) {
+			  doActions(pTc);
+			  return IRule::Stop;
+		  }
+        
+  
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add Semi to scope stack top statements_</div>
+
+  class HandlePreprocStatement : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandlePreprocStatement(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle preproc statement: ", *pTc);
+
+      Lexer::ITokenCollection* pClone = pTc-&gt;clone();
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+      ASTNode* pElem = p_Repos-&gt;scopeStack().top();
+      pElem-&gt;statements_.push_back(pClone);
+
+      GrammarHelper::showParse("Preproc Stmt", *pTc);
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect namespace statements</div>
+
+  class NamespaceDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test namespace definition: ", *pTc);
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc[tc.size() - 1] == "{")
+      {
+        size_t len;
+        tc.find("namespace", len);
+        if (len &lt; tc.size())
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add namespace info to scope stack top</div>
+
+  class HandleNamespaceDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleNamespaceDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle namespace definition: ", *pTc);
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* top = p_Repos-&gt;scopeStack().top();
+
+      size_t pos;
+      pTc-&gt;find("namespace", pos);
+      std::string name = (*pTc)[pos + 1];
+      top-&gt;type_ = "namespace";
+      top-&gt;name_ = name;
+      top-&gt;package_ = p_Repos-&gt;package();
+
+      GrammarHelper::showParse("namespace def", *pTc);
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect class statements</div>
+
+  class ClassDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test class definition: ", *pTc);
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc[tc.size() - 1] == "{")
+      {
+        size_t len;
+        tc.find("class", len);
+        if (len &lt; tc.size())
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+        if (tc.contains("interface"))
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add class info to scope stack top</div>
+
+  class HandleClassDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleClassDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle class definition: ", *pTc);
+
+      p_Repos-&gt;currentAccess() = Access::priv;
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* top = p_Repos-&gt;scopeStack().top();
+      size_t typeIndex;
+      pTc-&gt;find("class", typeIndex);
+      if (typeIndex &lt; pTc-&gt;size())
+      {
+        size_t nameIndex = typeIndex + 1;
+        std::string name = (*pTc)[nameIndex];
+        top-&gt;type_ = "class";
+        top-&gt;name_ = name;
+        top-&gt;package_ = p_Repos-&gt;package();
+        p_Repos-&gt;AST().typeMap()[name] = top;
+        GrammarHelper::showParse("class def", *pTc);
+      }
+      else  <div class="comments">// C#</div>
+      {
+        pTc-&gt;find("interface", typeIndex);
+        size_t nameIndex = typeIndex + 1;
+        std::string name = (*pTc)[nameIndex];
+        top-&gt;type_ = "interface";
+        top-&gt;name_ = name;
+        top-&gt;package_ = p_Repos-&gt;package();
+        p_Repos-&gt;AST().typeMap()[name] = top;
+        GrammarHelper::showParse("interface def", *pTc);
+      }
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect struct statements</div>
+
+  class StructDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test struct definition: ", *pTc);
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc[tc.size() - 1] == "{")
+      {
+        size_t len;
+        tc.find("struct", len);
+        if (len &lt; tc.size())
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add struct info to scope stack top</div>
+
+  class HandleStructDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleStructDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle struct definition: ", *pTc);
+
+      p_Repos-&gt;currentAccess() = Access::publ;
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* top = p_Repos-&gt;scopeStack().top();
+
+      size_t pos;
+      pTc-&gt;find("struct", pos);
+      std::string name = (*pTc)[pos + 1];
+      top-&gt;type_ = "struct";
+      top-&gt;name_ = name;
+      top-&gt;package_ = p_Repos-&gt;package();
+      p_Repos-&gt;AST().typeMap()[name] = top;
+
+      GrammarHelper::showParse("struct def", *pTc);
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C++ function definitions</div>
+
+  class CppFunctionDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::Cpp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C++ function definition: ", *pTc);
+
+      ScopeStack&lt;ASTNode*&gt;& stack = pRepo-&gt;scopeStack();
+      if (stack.size() &lt; 2)
+        return IRule::Continue;
+
+      std::string parentType = stack.predOfTop()-&gt;type_;
+      if (parentType != "namespace" && parentType != "class" && parentType != "struct")
+        return IRule::Continue;
+
+      const Lexer::ITokenCollection& tc = *pTc;
+
+      if (tc[tc.size() - 1] == "{")
+      {
+        if (GrammarHelper::isFunction(*pTc))
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add function info to scope stack top</div>
+
+  class HandleCppFunctionDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleCppFunctionDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C++ function definition: ", *pTc);
+
+      ScopeStack&lt;ASTNode*&gt;& stack = p_Repos-&gt;scopeStack();
+     
+      if (stack.size() == 0)
+        return;
+
+      ASTNode* top = stack.top();
+
+      size_t nameIndex;
+      if(pTc-&gt;find("(", nameIndex))
+      --nameIndex;
+      else return;
+      std::string name = (*pTc)[nameIndex];
+
+      <div class="comments">// is function a destructor?</div>
+
+      if (nameIndex &gt; 0 && (*pTc)[nameIndex - 1] == "~")
+      {
+        --nameIndex;
+        name = "~" + name;
+      }
+
+      top-&gt;type_ = "function";
+      top-&gt;name_ = name;
+      top-&gt;package_ = p_Repos-&gt;package();
+      GrammarHelper::showParse("function def", *pTc);
+
+      <div class="comments">// is function an operator?</div>
+
+      size_t operIndex;
+      pTc-&gt;find("operator", operIndex);
+      if (operIndex &lt; pTc-&gt;size())
+      {
+        name = "operator" + (*pTc)[operIndex + 1];<div class="comments">// +(*pTc)[operIndex + 2];</div>
+        if ((*pTc)[operIndex + 2] != "(")
+          name += (*pTc)[operIndex + 2];
+        top-&gt;name_ = name;
+        nameIndex = operIndex;
+      }
+      <div class="comments">// is function a member of a class or struct?</div>
+
+      if (nameIndex &gt; 1 && (*pTc)[nameIndex - 1] == "::")
+      {
+        <div class="comments">//----&lt; start find class name &gt;--------------------</div>
+
+        std::string className = (*pTc)[nameIndex - 2];
+
+        <div class="comments">// is class a template?</div>
+
+        if (className == "&gt;")
+        {
+          size_t startParam = GrammarHelper::findLast(*pTc, "&lt;");
+          if (0 &lt; startParam && startParam &lt; pTc-&gt;size())
+            className = (*pTc)[startParam - 1];
+        }
+        <div class="comments">//----&lt; end find class name &gt;----------------------</div>
+        <div class="comments">/*
+        * - this function's ASTNode is at stack top
+        * - find ASTNode of function's class
+        * - unlink function ASTNode from stack top predecessor
+        * - relink function ASTNode to it's class ASTNode
+        * - leave function ASTNode on stack top as it may have child nodes
+        */</div>
+        ASTNode* pClassNode = p_Repos-&gt;AST().find(className);
+        if (pClassNode == nullptr)
+          return;
+        if (p_Repos-&gt;scopeStack().size() &lt; 2)
+          return;
+
+        ASTNode* pFunctNode = p_Repos-&gt;scopeStack().top();
+        ASTNode* pParentNode = p_Repos-&gt;scopeStack().predOfTop();
+        if(pParentNode-&gt;children_.size() &gt; 0)
+          pParentNode-&gt;children_.pop_back();           <div class="comments">// unlink function</div>
+        pFunctNode-&gt;parentType_ = pClassNode-&gt;type_;
+        pClassNode-&gt;children_.push_back(pFunctNode);   <div class="comments">// relink function</div>
+        return;
+      }
+      <div class="comments">// is this a lambda?</div>
+
+      std::string packageName = p_Repos-&gt;package();
+      std::string ext = FileSystem::Path::getExt(packageName);
+
+      size_t posOpenBracket;
+      pTc-&gt;find("[", posOpenBracket);
+      size_t posCloseBracket;
+      pTc-&gt;find("]", posCloseBracket);
+      size_t posBrace;
+      pTc-&gt;find("{", posBrace);
+      size_t posOpenParen;
+      pTc-&gt;find("(", posOpenParen);
+      if (posCloseBracket != posBrace + 1 && posCloseBracket != posOpenParen + 1) <div class="comments">// []{ or [](</div>
+        return;
+      if (posOpenBracket &lt; posCloseBracket && posBrace == (posCloseBracket + 1) && posBrace &lt; pTc-&gt;size())
+      {
+        std::string name;
+        for (size_t i = posOpenBracket; i &lt; posBrace; ++i)
+          name += (*pTc)[i];
+        top-&gt;name_ = name;
+        top-&gt;type_ = "lambda";
+      }
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C# function definitions</div>
+
+  class CSharpFunctionDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::CSharp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C# function definition: ", *pTc);
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc[tc.size() - 1] == "{")
+      {
+        Lexer::Semi se;
+        for (size_t i = 0; i &lt; tc.size(); ++i)
+          se.add(tc[i]);
+
+        if (GrammarHelper::isFunction(se))
+        {
+          doActions(&se);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add function info to scope stack top</div>
+
+  class HandleCSharpFunctionDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleCSharpFunctionDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C# function definition: ", *pTc);
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* top = p_Repos-&gt;scopeStack().top();
+
+      size_t nameIndex;
+      if (pTc-&gt;find("(", nameIndex))
+        --nameIndex;
+      else
+        return;
+
+      std::string name = (*pTc)[nameIndex];
+
+      <div class="comments">// is function a destructor?</div>
+
+      if (nameIndex &gt; 0 && (*pTc)[nameIndex - 1] == "~")
+      {
+        --nameIndex;
+        name = "~" + name;
+      }
+
+      top-&gt;type_ = "function";
+      top-&gt;name_ = name;
+      top-&gt;package_ = p_Repos-&gt;package();
+
+      GrammarHelper::showParse("function def", *pTc);
+
+      <div class="comments">// is function an operator?</div>
+
+      size_t operIndex;
+      pTc-&gt;find("operator", operIndex);
+      if (operIndex &lt; pTc-&gt;size())
+      {
+        name = "operator" + (*pTc)[operIndex + 1] + (*pTc)[operIndex + 2];
+        top-&gt;name_ = name;
+        nameIndex = operIndex;
+      }
+
+      <div class="comments">// is lambda?</div>
+
+      size_t posParen;
+      pTc-&gt;find("(", posParen);
+      size_t posBrace;
+      pTc-&gt;find("{", posBrace);
+      size_t posEqual;
+      pTc-&gt;find("=", posEqual);
+      if (posParen &lt; posBrace && posBrace &lt; pTc-&gt;size())
+      {
+        if (posEqual &lt; pTc-&gt;size() - 1 && (*pTc)[posEqual + 1] == "&gt;")
+        {
+          std::string name;
+          for (size_t i = posParen; i &lt;= posBrace; ++i)
+            name += (*pTc)[i];
+          top-&gt;name_ = name;
+          top-&gt;type_ = "lambda";
+        }
+      }
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect control definitions</div>
+
+  class ControlDefinition : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test control definition: ", *pTc);
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc[tc.size() - 1] == "{")
+      {
+        size_t len;
+        tc.find("(", len);
+        if (len &lt; tc.size() && GrammarHelper::isControlKeyWord(tc[len - 1]))
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+        else if (tc.size() &gt; 1 && GrammarHelper::isControlKeyWord(tc[tc.size() - 2]))
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add control info to scope stack top</div>
+
+  class HandleControlDefinition : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleControlDefinition(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle control definition: ", *pTc);
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* top;
+      if ((p_Repos-&gt;scopeStack()).size() &gt; 0)
+        top = p_Repos-&gt;scopeStack().top();
+      else
+        return;
+
+      size_t nameIndex;
+      if(pTc-&gt;find("(", nameIndex))         <div class="comments">// if, for, while, switch, catch</div>
+        --nameIndex;
+      <div class="comments">//if (nameIndex == pTc-&gt;size() - 1)     // do, try - they don't have parens</div>
+      else
+        nameIndex = pTc-&gt;size() - 2;
+      std::string name = (*pTc)[nameIndex];
+      top-&gt;type_ = "control";
+      top-&gt;name_ = name;
+
+      GrammarHelper::showParse("control def", *pTc);
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to send semi-expression that starts a function def</div>
+  <div class="comments">// to console</div>
+
+  class PrintFunction : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+  public:
+    using Rslt = Logging::StaticLogger&lt;0&gt;;
+
+    PrintFunction(Repository* pRepos)
+    <div class="functions">{
+      p_Repos = pRepos;
+    }</div>
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      std::ostringstream out;
+      <div class="comments">//out &lt;&lt; "\n  FuncDef: " &lt;&lt; pTc-&gt;show().c_str();</div>
+      Rslt::write(out.str());
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to send signature of a function def to console</div>
+
+  class PrettyPrintFunction : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+  public:
+    using Rslt = Logging::StaticLogger&lt;0&gt;;
+
+    PrettyPrintFunction(Repository* pRepos) : p_Repos(pRepos) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      size_t len;
+      pTc-&gt;find(")", len);
+
+      std::ostringstream out;
+      out &lt;&lt; "\n\n  Pretty Stmt:    ";
+      for (size_t i = 0; i &lt; len + 1; ++i)
+        out &lt;&lt; (*pTc)[i] &lt;&lt; " ";
+      out &lt;&lt; "\n";
+      Rslt::write(out.str());
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C++ Declaration</div>
+  <div class="comments">/*
+  *  - Declaration ends in semicolon
+  *  - has type, name, modifiers & initializers
+  *  So:
+  *  - strip off modifiers and initializers
+  *  - if you have two things left it's a declar, else executable
+  */</div>
+  class CppDeclaration : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::Cpp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C++ declaration: ", *pTc);
+
+      Lexer::Semi tc;
+      tc.clone(*pTc);
+
+      <div class="comments">// begin added 2/26/2017</div>
+
+      Access access = pRepo-&gt;currentAccess();
+      bool isPublic = false;
+
+      if (pRepo-&gt;scopeStack().size() == 0)
+        return false;
+
+      std::string parentType = pRepo-&gt;scopeStack().top()-&gt;type_;
+
+      size_t posPrivate;
+      pTc-&gt;find("private", posPrivate);
+      if (posPrivate &lt; pTc-&gt;size())
+      {
+        isPublic = false;
+        pRepo-&gt;currentAccess() = Access::priv;
+      }
+
+      size_t posProtected;
+      pTc-&gt;find("protected", posProtected);
+      if (posProtected &lt; pTc-&gt;size())
+      {
+        isPublic = false;
+        pRepo-&gt;currentAccess() = Access::prot;
+      }
+
+      size_t posPublic;
+      pTc-&gt;find("public", posPublic);
+      if (posPublic &lt; pTc-&gt;size() && parentType != "function")
+      {
+        isPublic = true;
+        pRepo-&gt;currentAccess() = Access::publ;
+      }
+
+      <div class="comments">// end added 2/26/2017</div>
+
+      if (tc.size() &gt; 0 && tc[0] == "using")
+      {
+        doActions(pTc);
+        return IRule::Stop;
+      }
+
+      if (tc[tc.size() - 1] == ";" && tc.size() &gt; 2)
+      {
+        std::string nextToLast = tc[tc.size() - 2];
+        if (nextToLast == "delete" || nextToLast == "default" || nextToLast == "const")
+        {
+          {
+            <div class="comments">// function declaration</div>
+            doActions(pTc);
+            return IRule::Stop;
+          }
+        }
+        std::string parentType = pRepo-&gt;scopeStack().top()-&gt;type_;
+        
+        if (GrammarHelper::isDataDeclaration(tc) || GrammarHelper::isFunctionDeclaration(tc, parentType))
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+
+        if (parentType != "function")
+        {
+          <div class="comments">// can't be executable so must be declaration</div>
+
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add declaration info to scope stack top</div>
+
+  class HandleCppDeclaration : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleCppDeclaration(Repository* pRepos) : p_Repos(pRepos) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C++ declaration: ", *pTc);
+
+      <div class="comments">// save declaration info in ASTNode</div>
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* pCurrNode = p_Repos-&gt;scopeStack().top();
+      DeclarationNode declNode;
+      declNode.access_ = p_Repos-&gt;currentAccess();
+      declNode.pTc = pTc-&gt;clone();
+      declNode.package_ = p_Repos-&gt;package();
+      declNode.line_ = p_Repos-&gt;lineCount();
+
+      Lexer::Semi se;
+      se.clone(*pTc);
+      GrammarHelper::removeComments(se);
+
+      if (se[0] == "using")
+      {
+        declNode.declType_ = DeclType::usingDecl;
+        pCurrNode-&gt;decl_.push_back(declNode);
+
+        GrammarHelper::showParse("using declar", *pTc);
+        return;
+      }
+
+      if (GrammarHelper::isFunctionDeclaration(se,"parentNotFunction"))
+      {
+        return;
+      }
+
+      if (GrammarHelper::isDataDeclaration(se))
+      {
+        declNode.declType_ = DeclType::dataDecl;
+        pCurrNode-&gt;decl_.push_back(declNode);
+        GrammarHelper::showParse("data declar", *pTc);
+      }
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C# Declaration</div>
+  <div class="comments">/*
+  *  - Declaration ends in semicolon
+  *  - has type, name, modifiers & initializers
+  *  So:
+  *  - strip of modifiers and initializers
+  *  - if you have two things left it's a declar, else executable
+  */</div>
+  class CSharpDeclaration : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::CSharp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C# declaration: ", *pTc);
+
+      Access access = pRepo-&gt;currentAccess();
+      bool isPublic = false;
+
+      if (pRepo-&gt;scopeStack().size() == 0)
+        return false;
+
+      std::string parentType = pRepo-&gt;scopeStack().top()-&gt;type_;
+
+      size_t posPublic;
+      pTc-&gt;find("public", posPublic);
+      if (posPublic &lt; pTc-&gt;size() && parentType != "function")
+      {
+        isPublic = true;
+        pRepo-&gt;currentAccess() = Access::publ;
+      }
+
+      const Lexer::ITokenCollection& tc = *pTc;
+      if (tc.size() &gt; 0 && tc[0] == "using")
+      {
+        doActions(pTc);
+        pRepo-&gt;currentAccess() = access;
+        return IRule::Stop;
+      }
+
+      Lexer::Semi se;
+      se.clone(*pTc);
+
+      if (GrammarHelper::isDataDeclaration(se))
+      {
+        doActions(pTc);
+        pRepo-&gt;currentAccess() = access;
+        return IRule::Stop;
+      }
+
+      if (GrammarHelper::isFunctionDeclaration(se, parentType))
+      {
+        doActions(pTc);
+        pRepo-&gt;currentAccess() = access;
+        return IRule::Stop;
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to add declaration info to scope stack top</div>
+
+  class HandleCSharpDeclaration : public IAction
+  <div class="classes">{
+    Repository* p_Repos;
+
+  public:
+    HandleCSharpDeclaration(Repository* pRepos) : p_Repos(pRepos) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C# declaration: ", *pTc);
+
+      <div class="comments">// store declaration info in ASTNode</div>
+
+      if (p_Repos-&gt;scopeStack().size() == 0)
+        return;
+
+      ASTNode* pCurrNode = p_Repos-&gt;scopeStack().top();
+      DeclarationNode declNode;
+      declNode.access_ = p_Repos-&gt;currentAccess();
+      declNode.pTc = pTc-&gt;clone();
+      declNode.package_ = p_Repos-&gt;package();
+      declNode.line_ = p_Repos-&gt;lineCount();
+
+      Lexer::Semi se;
+      se.clone(*pTc);
+      GrammarHelper::removeComments(se);
+
+      if (se[0] == "using")
+      {
+        declNode.declType_ = DeclType::usingDecl;
+        pCurrNode-&gt;decl_.push_back(declNode);
+
+        GrammarHelper::showParse("using declar", *pTc);
+        return;
+      }
+
+      std::string parentType = p_Repos-&gt;scopeStack().top()-&gt;type_;
+
+      if (GrammarHelper::isFunctionDeclaration(se, parentType))
+      {
+        Access adebug = declNode.access_;
+        declNode.declType_ = DeclType::functionDecl;
+        pCurrNode-&gt;decl_.push_back(declNode);
+        GrammarHelper::showParse("function declar", *pTc);
+      }
+      else
+      {
+        Access adebug = declNode.access_;
+        declNode.declType_ = DeclType::dataDecl;
+        pCurrNode-&gt;decl_.push_back(declNode);
+        GrammarHelper::showParse("data declar", *pTc);
+      }
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C++ Executable</div>
+
+  class CppExecutable : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::Cpp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C++ executable: ", *pTc);
+
+      Lexer::Semi tc;
+      tc.clone(*pTc);
+
+      if (tc[tc.size() - 1] == ";" && tc.size() &gt; 2)
+      {
+        GrammarHelper::removeFunctionArgs(tc);
+        GrammarHelper::condenseTemplateTypes(tc);
+
+        <div class="comments">// remove modifiers, comments, newlines, returns, and initializers</div>
+
+        Lexer::Semi se;
+        for (size_t i = 0; i &lt; tc.size(); ++i)
+        {
+          if (GrammarHelper::isQualifierKeyWord(tc[i]))
+            continue;
+          if (se.isComment(tc[i]) || tc[i] == "\n" || tc[i] == "return")
+            continue;
+          if (tc[i] == "=" || tc[i] == ";")
+          {
+            se.add(";");
+            break;
+          }
+          else
+            se.add(tc[i]);
+        }
+        if (se.size() != 3)  <div class="comments">// not a declaration</div>
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to display C++ executable info</div>
+
+  class HandleCppExecutable : public IAction
+  <div class="classes">{
+    Repository* p_Repo;
+
+  public:
+    HandleCppExecutable(Repository* pRepo) : p_Repo(pRepo) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C++ executable: ", *pTc);
+
+      GrammarHelper::showParse("executable", *pTc);
+    }</div>
+  };</div>
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// rule to detect C# Executable</div>
+
+  class CSharpExecutable : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      Repository* pRepo = Repository::getInstance();
+      if (pRepo-&gt;language() != Language::CSharp)
+        return IRule::Continue;
+
+      GrammarHelper::showParseDemo("Test C# executable: ", *pTc);
+
+      const Lexer::ITokenCollection& in = *pTc;
+      Lexer::Semi tc;
+      for (size_t i = 0; i &lt; in.size(); ++i)
+        tc.add(in[i]);
+
+      if (tc[tc.size() - 1] == ";" && tc.size() &gt; 2)
+      {
+        GrammarHelper::removeFunctionArgs(tc);
+        GrammarHelper::condenseTemplateTypes(tc);
+
+        <div class="comments">// remove modifiers, comments, newlines, returns, and initializers</div>
+
+        Lexer::Semi se;
+        for (size_t i = 0; i &lt; tc.size(); ++i)
+        {
+          if (GrammarHelper::isQualifierKeyWord(tc[i]))
+            continue;
+          if (se.isComment(tc[i]) || tc[i] == "\n" || tc[i] == "return")
+            continue;
+          if (tc[i] == "=" || tc[i] == ";")
+          {
+            se.add(";");
+            break;
+          }
+          else
+            se.add(tc[i]);
+        }
+        if (se.size() != 3)  <div class="comments">// not a declaration</div>
+        {
+          doActions(pTc);
+          return IRule::Stop;
+        }
+      }
+      return IRule::Continue;
+    }</div>
+  };</div>
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to display C# executable info</div>
+
+  class HandleCSharpExecutable : public IAction
+  <div class="classes">{
+    Repository* p_Repo;
+
+  public:
+    HandleCSharpExecutable(Repository* pRepo) : p_Repo(pRepo) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle C# executable: ", *pTc);
+
+      Lexer::Semi se;
+      se.clone(*pTc);
+      GrammarHelper::removeComments(se);
+
+      GrammarHelper::showParse("executable", se);
+    }</div>
+  };</div>
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// default rule</div>
+  <div class="comments">// - this is here to catch any Semi that didn't parse</div>
+  <div class="comments">// - We don't have rule for enums, so they are caugth here</div>
+
+  class Default : public IRule
+  <div class="classes">{
+  public:
+    bool doTest(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Test default: ", *pTc);
+
+      doActions(pTc);  <div class="comments">// catches everything</div>
+      return IRule::Stop;
+    }</div>
+  };</div>
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// action to display default info</div>
+
+  class HandleDefault : public IAction
+  <div class="classes">{
+    Repository* p_Repo;
+
+  public:
+    HandleDefault(Repository* pRepo) : p_Repo(pRepo) <div class="functions">{}</div>
+
+    void doAction(const Lexer::ITokenCollection* pTc) override
+    <div class="functions">{
+      GrammarHelper::showParseDemo("Handle default: ", *pTc);
+      GrammarHelper::showParse("default: ", *pTc);
+    }</div>
+  };</div>
+}</div>
+#endif
+</pre>
+</body
+></html
+>

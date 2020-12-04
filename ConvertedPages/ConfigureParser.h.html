@@ -1,0 +1,150 @@
+<!Document html>
+<html>
+<head>
+<link rel = "stylesheet" href = "style.css">
+<script src="showHideClass.js"></script>
+</head>
+<body>
+<button onclick = "showHideClass('classes')">Show or Hide Class Contents</button>
+<button onclick = "showHideClass('functions')">Show or Hide Function Contents</button>
+<button onclick = "showHideClass('comments')">Show or Hide Comments</button><br><a href="ActionsAndRules.h.html ">ActionsAndRules.h</a>&nbsp&nbsp&nbsp&nbsp<pre>
+#ifndef CONFIGUREPARSER_H
+#define CONFIGUREPARSER_H
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">//  ConfigureParser.h - builds and configures parsers              //</div>
+<div class="comments">//  ver 3.3                                                        //</div>
+<div class="comments">//                                                                 //</div>
+<div class="comments">//  Lanaguage:     Visual C++ 2005                                 //</div>
+<div class="comments">//  Platform:      Dell Dimension 9150, Windows XP SP2             //</div>
+<div class="comments">//  Application:   Prototype for CSE687 Pr1, Sp06                  //</div>
+<div class="comments">//  Author:        Jim Fawcett, CST 2-187, Syracuse University     //</div>
+<div class="comments">//                 (315) 443-3948, jfawcett@twcny.rr.com           //</div>
+<div class="comments">/////////////////////////////////////////////////////////////////////</div>
+<div class="comments">/*
+  Module Operations: 
+  ==================
+  This module builds and configures parsers.  It builds the parser
+  parts and configures them with application specific rules and actions.
+
+  Public Interface:
+  =================
+  ConfigParseForCodeAnal config;
+  config.Build();
+  config.Attach(someFileName);
+
+  Build Process:
+  ==============
+  Required files
+    - ConfigureParser.h, ConfigureParser.cpp, Parser.h, Parser.cpp,
+      ActionsAndRules.h, ActionsAndRules.cpp,
+      Semiression.h, Semiression.cpp, tokenizer.h, tokenizer.cpp
+  Build commands (either one)
+    - devenv Project1HelpS06.sln
+    - cl /EHsc /DTEST_PARSER ConfigureParser.cpp parser.cpp \
+         ActionsAndRules.cpp \
+         Semiression.cpp tokenizer.cpp /link setargv.obj
+
+  Maintenance History:
+  ====================
+  ver 3.3 : 05 Nov 2017
+  - modified ConfigureParser to return false on opening empty file
+  ver 3.2 : 29 Oct 2016
+  - added check for Byte Order Mark (BOM) in attach(...)
+  ver 3.1 : 27 Aug 16
+  - added default rule and action to configuration
+  ver 3.0 : 23 Aug 16
+  - major changes for CodeAnalysis application
+  ver 2.1 : 19 Feb 16
+  - Added PrintFunction action to FunctionDefinition rule
+  ver 2.0 : 01 Jun 11
+  - Major revisions to begin building a strong code analyzer
+  ver 1.1 : 01 Feb 06
+  - cosmetic changes to ConfigureParser.cpp
+  ver 1.0 : 12 Jan 06
+  - first release
+*/</div>
+
+#include &lt;fstream&gt;
+#include "Parser.h"
+#include "ActionsAndRules.h"
+#include "../SemiExpression/Semi.h"
+#include "../Tokenizer/Toker.h"
+
+namespace CodeAnalysis
+{
+  <div class="comments">///////////////////////////////////////////////////////////////</div>
+  <div class="comments">// build parser that writes its output to console</div>
+
+  class ConfigParseForCodeAnal : IBuilder
+  <div class="classes">{
+  public:
+    ConfigParseForCodeAnal() <div class="comments">/*: pIn(nullptr)*/</div> <div class="functions">{}</div>;
+    ~ConfigParseForCodeAnal();
+    bool Attach(const std::string& name, bool isFile = true);
+    Parser* Build();
+
+  private:
+    <div class="comments">// Builder must hold onto all the pieces</div>
+
+    <div class="comments">//std::ifstream* pIn = nullptr;</div>
+    Lexer::Toker* pToker;
+    Lexer::Semi* pSemi;
+    Parser* pParser;
+    Repository* pRepo;
+
+    <div class="comments">// add Rules and Actions</div>
+
+    BeginScope* pBeginScope = nullptr;
+    HandleBeginScope* pHandleBeginScope = nullptr;
+
+    EndScope* pEndScope = nullptr;
+    HandleEndScope* pHandleEndScope = nullptr;
+
+    PreprocStatement* pPreprocStatement = nullptr;
+    HandlePreprocStatement* pHandlePreprocStatement = nullptr;
+
+    NamespaceDefinition* pNamespaceDefinition = nullptr;
+    HandleNamespaceDefinition* pHandleNamespaceDefinition = nullptr;
+
+    ClassDefinition* pClassDefinition = nullptr;
+    HandleClassDefinition* pHandleClassDefinition = nullptr;
+
+    StructDefinition* pStructDefinition = nullptr;
+    HandleStructDefinition* pHandleStructDefinition = nullptr;
+
+    CppFunctionDefinition* pCppFunctionDefinition = nullptr;
+    HandleCppFunctionDefinition* pHandleCppFunctionDefinition = nullptr;
+    <div class="comments">//PrintFunction* pPrintFunction;</div>
+
+    CSharpFunctionDefinition* pCSharpFunctionDefinition = nullptr;
+    HandleCSharpFunctionDefinition* pHandleCSharpFunctionDefinition = nullptr;
+
+    ControlDefinition* pControlDefinition = nullptr;
+    HandleControlDefinition* pHandleControlDefinition = nullptr;
+
+    CppDeclaration* pCppDeclaration = nullptr;
+    HandleCppDeclaration* pHandleCppDeclaration = nullptr;
+
+    CSharpDeclaration* pCSharpDeclaration = nullptr;
+    HandleCSharpDeclaration* pHandleCSharpDeclaration = nullptr;
+
+    CppExecutable* pCppExecutable = nullptr;
+    HandleCppExecutable* pHandleCppExecutable = nullptr;
+
+    CSharpExecutable* pCSharpExecutable = nullptr;
+    HandleCSharpExecutable* pHandleCSharpExecutable = nullptr;
+
+    Default* pDefault = nullptr;
+    HandleDefault* pHandleDefault = nullptr;
+
+    <div class="comments">// prohibit copies and assignments</div>
+
+    ConfigParseForCodeAnal(const ConfigParseForCodeAnal&) = delete;
+    ConfigParseForCodeAnal& operator=(const ConfigParseForCodeAnal&) = delete;
+  };</div>
+}</div>
+#endif
+</pre>
+</body
+></html
+>

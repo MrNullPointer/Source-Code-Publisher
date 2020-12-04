@@ -1,0 +1,15 @@
+﻿  display.cpp
+c:\project backup\oodproject1\process\process.h(114): error C2440: '=': cannot convert from 'LPWSTR' to 'LPSTR'
+  c:\project backup\oodproject1\process\process.h(114): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
+c:\project backup\oodproject1\process\process.h(127): error C2440: 'initializing': cannot convert from 'const _Elem *' to 'LPCTSTR'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  c:\project backup\oodproject1\process\process.h(127): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
+c:\project backup\oodproject1\process\process.h(128): error C2440: 'const_cast': cannot convert from 'const _Elem *' to 'LPTSTR'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  c:\project backup\oodproject1\process\process.h(128): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
